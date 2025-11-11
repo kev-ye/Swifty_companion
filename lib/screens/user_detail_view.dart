@@ -65,8 +65,17 @@ class UserDetailView extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(skill['name']?.toString() ?? ''),
-                                Text('Lv ${level.toStringAsFixed(2)} (${percentage.toStringAsFixed(0)}%)'),
+                                Expanded(
+                                  child: Text(
+                                    skill['name']?.toString() ?? '',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Lv ${level.toStringAsFixed(2)} (${percentage.toStringAsFixed(0)}%)',
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 4),
@@ -165,8 +174,13 @@ class UserDetailView extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
-            child: Text(value ?? 'N/A'),
+            child: Text(
+              value ?? 'N/A',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
           ),
         ],
       ),

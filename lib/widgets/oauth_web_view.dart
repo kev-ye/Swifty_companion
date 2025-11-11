@@ -32,22 +32,26 @@ class _OAuthWebViewState extends State<OAuthWebView> {
     _initializeWebView();
   }
 
-  // 使用平台通道清除 cookies（Android）
+  // 使用平台通道清除 cookies（Android 和 iOS）
   Future<void> _clearCookies() async {
     try {
       const platform = MethodChannel('com.example.swiftcompanion/cookies');
       await platform.invokeMethod('clearCookies');
     } catch (e) {
       // 如果平台通道失败，忽略错误（可能在某些设备上不支持）
+      // 在 iOS 上，这个错误不应该出现，因为我们已经实现了平台通道
       print('Platform channel not available: $e');
     }
   }
 
   Future<void> _initializeWebView() async {
     // 在创建 WebView 之前清除 cookies，确保每次都是全新的会话
+    // 注意：在 iOS 上，清除 cookies 会同时清除缓存和本地存储
     try {
       await _clearCookies();
       print('Cookies cleared before WebView creation');
+      // 给一点时间让清除操作完成
+      await Future.delayed(const Duration(milliseconds: 100));
     } catch (e) {
       print('Error clearing cookies: $e');
     }
