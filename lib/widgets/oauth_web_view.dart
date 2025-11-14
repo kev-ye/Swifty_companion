@@ -4,7 +4,7 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import 'package:flutter/services.dart';
 
-// OAuth WebView 页面
+// OAuth WebView page
 class OAuthWebView extends StatefulWidget {
   final String authUrl;
   final String redirectUri;
@@ -22,7 +22,7 @@ class OAuthWebView extends StatefulWidget {
 }
 
 class _OAuthWebViewState extends State<OAuthWebView> {
-  WebViewController? _controller;  // 改为可空类型，因为初始化是异步的
+  WebViewController? _controller;  // Nullable type because initialization is async
   bool _isLoading = true;
   bool _codeReceived = false;
 
@@ -32,31 +32,35 @@ class _OAuthWebViewState extends State<OAuthWebView> {
     _initializeWebView();
   }
 
-  // 使用平台通道清除 cookies（Android 和 iOS）
+  // Clear cookies using platform channel (Android and iOS)
   Future<void> _clearCookies() async {
     try {
       const platform = MethodChannel('com.example.swiftcompanion/cookies');
       await platform.invokeMethod('clearCookies');
     } catch (e) {
-      // 如果平台通道失败，忽略错误（可能在某些设备上不支持）
-      // 在 iOS 上，这个错误不应该出现，因为我们已经实现了平台通道
+      // If platform channel fails, ignore error (may not be supported on some devices)
+      // On iOS, this error should not occur as we have implemented the platform channel
       print('Platform channel not available: $e');
     }
   }
 
   Future<void> _initializeWebView() async {
-    // 在创建 WebView 之前清除 cookies，确保每次都是全新的会话
-    // 注意：在 iOS 上，清除 cookies 会同时清除缓存和本地存储
+    print('🚀 [OAuthWebView] Initializing WebView...');
+    print('   Auth URL: ${widget.authUrl}');
+    print('   Redirect URI: ${widget.redirectUri}');
+    
+    // Clear cookies before creating WebView to ensure a fresh session each time
+    // Note: On iOS, clearing cookies also clears cache and local storage
     try {
       await _clearCookies();
-      print('Cookies cleared before WebView creation');
-      // 给一点时间让清除操作完成
+      print('✅ [OAuthWebView] Cookies cleared before WebView creation');
+      // Give some time for the clear operation to complete
       await Future.delayed(const Duration(milliseconds: 100));
     } catch (e) {
-      print('Error clearing cookies: $e');
+      print('⚠️ [OAuthWebView] Error clearing cookies: $e');
     }
 
-    // 创建平台特定的 WebView 配置
+    // Create platform-specific WebView configuration
     late final PlatformWebViewControllerCreationParams params;
     if (WebViewPlatform.instance is WebKitWebViewPlatform) {
       params = WebKitWebViewControllerCreationParams(
@@ -69,21 +73,28 @@ class _OAuthWebViewState extends State<OAuthWebView> {
 
     final controller = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent('Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36')
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (NavigationRequest request) {
-            // 拦截回调 URL
+            print('🔀 [OAuthWebView] Navigation request: ${request.url}');
+            print('   Is main frame: ${request.isMainFrame}');
+            
+            // Intercept callback URL
             final uri = Uri.tryParse(request.url);
             if (uri != null) {
               final redirectUri = Uri.parse(widget.redirectUri);
               if (uri.scheme == redirectUri.scheme && uri.host == redirectUri.host) {
+                print('🛑 [OAuthWebView] Intercepting redirect URI');
                 _handleCallback(request.url);
                 return NavigationDecision.prevent;
               }
             }
+            print('✅ [OAuthWebView] Allowing navigation');
             return NavigationDecision.navigate;
           },
           onPageStarted: (String url) {
+            print('📄 [OAuthWebView] Page started loading: $url');
             if (!_codeReceived) {
               setState(() {
                 _isLoading = true;
@@ -92,6 +103,7 @@ class _OAuthWebViewState extends State<OAuthWebView> {
             _handleCallback(url);
           },
           onPageFinished: (String url) {
+            print('✅ [OAuthWebView] Page finished loading: $url');
             if (!_codeReceived) {
               setState(() {
                 _isLoading = false;
@@ -100,68 +112,130 @@ class _OAuthWebViewState extends State<OAuthWebView> {
             _handleCallback(url);
           },
           onWebResourceError: (WebResourceError error) {
-            // 忽略深度链接的错误（这是正常的）
-            if (!error.description.contains('ERR_UNKNOWN_URL_SCHEME')) {
-              print('WebView error: ${error.description}');
-              // 显示错误信息给用户
-              if (mounted && !_codeReceived) {
-                setState(() {
-                  _isLoading = false;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('加载错误: ${error.description}'),
-                    duration: const Duration(seconds: 3),
+            print('❌ [OAuthWebView] WebResourceError:');
+            print('   Error code: ${error.errorCode}');
+            print('   Description: ${error.description}');
+            print('   URL: ${error.url}');
+            
+            // Ignore deep link errors (this is normal)
+            if (error.description.contains('ERR_UNKNOWN_URL_SCHEME')) {
+              return;
+            }
+            
+            // Handle network errors
+            String errorMessage = 'Loading error';
+            if (error.description.contains('ERR_NAME_NOT_RESOLVED')) {
+              errorMessage = 'Cannot connect to server, please check network connection\n(If using emulator, ensure emulator has network access)';
+            } else if (error.description.contains('ERR_INTERNET_DISCONNECTED')) {
+              errorMessage = 'Network connection disconnected, please check network settings';
+            } else if (error.description.contains('ERR_TIMED_OUT')) {
+              errorMessage = 'Connection timeout, please try again later';
+            } else {
+              errorMessage = 'Loading error: ${error.description}';
+            }
+            
+            // Show error message to user
+            if (mounted && !_codeReceived) {
+              setState(() {
+                _isLoading = false;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(errorMessage),
+                  duration: const Duration(seconds: 5),
+                  action: SnackBarAction(
+                    label: 'Retry',
+                    onPressed: () {
+                      // Reload page
+                      _controller?.reload();
+                    },
                   ),
-                );
-              }
+                ),
+              );
             }
           },
         ),
       );
 
-    // Android 特定配置：清除缓存和本地存储，确保私有会话
+    // Platform-specific configuration
     if (controller.platform is AndroidWebViewController) {
+      // Android-specific: Clear cache and local storage for private session
       final androidController = controller.platform as AndroidWebViewController;
       await androidController.setMediaPlaybackRequiresUserGesture(false);
       
-      // 清除缓存和本地存储（在加载 URL 之前）
-      // 注意：清除操作可能会影响输入框的焦点，所以延迟清除
+      // Clear cache and local storage (before loading URL)
+      // Note: Clearing operation may affect input focus, so delay clearing
       try {
-        // 先加载页面，再清除缓存（避免影响页面加载和输入）
+        // Load page first, then clear cache (to avoid affecting page loading and input)
         Future.delayed(const Duration(seconds: 2), () async {
           try {
             await androidController.clearCache();
             await androidController.clearLocalStorage();
-            print('Cache and localStorage cleared for private session');
+            print('✅ [OAuthWebView] Android: Cache and localStorage cleared for private session');
           } catch (e) {
-            print('Error clearing cache/localStorage: $e');
+            print('❌ [OAuthWebView] Error clearing Android cache/localStorage: $e');
           }
         });
       } catch (e) {
-        print('Error setting up cache clearing: $e');
+        print('❌ [OAuthWebView] Error setting up Android cache clearing: $e');
       }
+    } else if (controller.platform is WebKitWebViewController) {
+      // iOS-specific: Cache and local storage are already cleared via platform channel
+      // The _clearCookies() method called earlier uses WKWebsiteDataStore which clears
+      // all website data including cookies, cache, and local storage on iOS
+      print('✅ [OAuthWebView] iOS: Cache and localStorage already cleared via platform channel');
     }
 
-    // 先设置 controller，再加载 URL
+    // Set controller first, then load URL
     if (mounted) {
       setState(() {
         _controller = controller;
       });
+      print('✅ [OAuthWebView] Controller set in state');
     }
 
-    // 加载 URL
+    // Wait a bit to ensure WebView is fully initialized
+    print('⏳ [OAuthWebView] Waiting for WebView to initialize...');
+    await Future.delayed(const Duration(milliseconds: 500));
+    print('✅ [OAuthWebView] WebView initialization wait complete');
+
+    // Load URL
     try {
-      await controller.loadRequest(Uri.parse(widget.authUrl));
-    } catch (e) {
-      print('Error loading URL: $e');
+      final uri = Uri.parse(widget.authUrl);
+      print('🌐 [OAuthWebView] Loading URL: ${uri.toString()}');
+      print('   Scheme: ${uri.scheme}');
+      print('   Host: ${uri.host}');
+      print('   Path: ${uri.path}');
+      print('   Query: ${uri.query}');
+      
+      await controller.loadRequest(uri);
+      print('✅ [OAuthWebView] URL load request sent successfully');
+      
+      // Set timeout: If page doesn't load within 15 seconds, show error
+      Future.delayed(const Duration(seconds: 15), () {
+        if (mounted && _isLoading && !_codeReceived) {
+          print('⏰ [OAuthWebView] Timeout: Page did not load within 15 seconds');
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Page load timeout, please check network connection'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      });
+    } catch (e, stackTrace) {
+      print('❌ [OAuthWebView] Error loading URL: $e');
+      print('   Stack trace: $stackTrace');
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('无法加载页面: $e'),
+            content: Text('Failed to load page: $e'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -194,7 +268,7 @@ class _OAuthWebViewState extends State<OAuthWebView> {
           setState(() {
             _isLoading = false;
           });
-          // 延迟一下再关闭，确保状态更新
+          // Delay a bit before closing to ensure state update
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted) {
               widget.onCodeReceived(code);
@@ -207,7 +281,7 @@ class _OAuthWebViewState extends State<OAuthWebView> {
 
   @override
   void dispose() {
-    // 清理资源
+    // Clean up resources
     _controller = null;
     super.dispose();
   }

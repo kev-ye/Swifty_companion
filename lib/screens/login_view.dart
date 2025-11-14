@@ -3,7 +3,7 @@ import '../services/intra_api.dart';
 import '../widgets/oauth_web_view.dart';
 import 'search_view.dart';
 
-// 登录页面
+// Login page
 class LoginView extends StatefulWidget {
   final bool forceLogin;
 
@@ -45,12 +45,13 @@ class _LoginViewState extends State<LoginView> {
   }
 
   void _startLogin() {
-    final authUrl = _api.getAuthorizationUrl(forceReauth: widget.forceLogin);
+    final authUrl = _api.getAuthorizationUrl();
+    print('🔗 [LoginView] Generated auth URL: $authUrl');
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => OAuthWebView(
-          key: ValueKey(DateTime.now().millisecondsSinceEpoch), // 每次创建唯一的 key，确保创建新实例
+          key: ValueKey(DateTime.now().millisecondsSinceEpoch), // Create unique key each time to ensure new instance
           authUrl: authUrl,
           redirectUri: IntraApi.redirectUri,
           onCodeReceived: _handleLoginSuccess,
@@ -60,7 +61,7 @@ class _LoginViewState extends State<LoginView> {
   }
 
   void _handleLoginSuccess(String code) async {
-    // 关闭 WebView
+    // Close WebView
     if (mounted && Navigator.canPop(context)) {
       Navigator.pop(context);
     }
