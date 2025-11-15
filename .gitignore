@@ -8,7 +8,7 @@
 .pub-cache/
 .pub/
 build/
-**/build/              # 忽略所有层级的 build 文件夹
+**/build/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 coverage/
