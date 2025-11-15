@@ -3,7 +3,7 @@ import '../services/intra_api.dart';
 import 'login_view.dart';
 import 'user_detail_view.dart';
 
-// 搜索页面
+// Search view
 class SearchView extends StatefulWidget {
   const SearchView({super.key});
 
@@ -15,6 +15,7 @@ class _SearchViewState extends State<SearchView> {
   final TextEditingController _controller = TextEditingController();
   final IntraApi _api = IntraApi();
   bool _isLoading = false;
+  bool _loadingUserData = true;
   String? _errorMessage;
   String? _currentUserLogin;
 
@@ -26,41 +27,55 @@ class _SearchViewState extends State<SearchView> {
 
   void _loadCurrentUser() async {
     final userData = await _api.getCurrentUser();
-    if (userData != null && mounted) {
+    if (mounted) {
       setState(() {
-        _currentUserLogin = userData['login'] as String?;
+        _loadingUserData = false;
+        _currentUserLogin = userData?['login'] as String?;
       });
     }
   }
 
   void _searchUser() async {
+    // Prevent race condition: return early if already loading
+    if (_isLoading) return;
+
     if (_controller.text.isEmpty) {
-      setState(() {
-        _errorMessage = 'Please enter a login';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Please enter a login';
+        });
+      }
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    // Update state before making API call
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     final userData = await _api.searchUser(_controller.text.trim());
 
-    setState(() {
-      _isLoading = false;
-    });
+    // Update state before navigation to avoid setState after dispose
+    if (!mounted) return;
 
     if (userData == null) {
       setState(() {
+        _isLoading = false;
         _errorMessage = 'Failed to fetch data';
       });
     } else if (userData.containsKey('error')) {
       setState(() {
+        _isLoading = false;
         _errorMessage = userData['error'] as String;
       });
     } else {
+      // Update state before navigation
+      setState(() {
+        _isLoading = false;
+      });
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -76,7 +91,7 @@ class _SearchViewState extends State<SearchView> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const LoginView(forceLogin: true),
+          builder: (context) => const LoginView(),
         ),
       );
     }
@@ -100,7 +115,10 @@ class _SearchViewState extends State<SearchView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_currentUserLogin != null) ...[
+            // Show loading indicator to prevent UI flicker
+            if (_loadingUserData)
+              const CircularProgressIndicator(strokeWidth: 2)
+            else if (_currentUserLogin != null) ...[
               Text(
                 'Logged in as: $_currentUserLogin',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),

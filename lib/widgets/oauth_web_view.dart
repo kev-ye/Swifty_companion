@@ -294,14 +294,14 @@ class _OAuthWebViewState extends State<OAuthWebView> {
       ),
       body: _controller == null
           ? const Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(strokeWidth: 2),
             )
           : Stack(
               children: [
                 WebViewWidget(controller: _controller!),
                 if (_isLoading)
                   const Center(
-                    child: CircularProgressIndicator(),
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
               ],
             ),

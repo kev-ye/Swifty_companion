@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-// 用户详情页面
+// User detail view
 class UserDetailView extends StatelessWidget {
   final Map<String, dynamic> userData;
 

@@ -5,9 +5,7 @@ import 'search_view.dart';
 
 // Login page
 class LoginView extends StatefulWidget {
-  final bool forceLogin;
-
-  const LoginView({super.key, this.forceLogin = false});
+  const LoginView({super.key});
 
   @override
   State<LoginView> createState() => _LoginViewState();
@@ -24,13 +22,6 @@ class _LoginViewState extends State<LoginView> {
   }
 
   void _checkLoginStatus() async {
-    if (widget.forceLogin) {
-      setState(() {
-        _isLoading = false;
-      });
-      return;
-    }
-
     final isLoggedIn = await _api.isLoggedIn();
     if (isLoggedIn && mounted) {
       Navigator.pushReplacement(
@@ -97,7 +88,7 @@ class _LoginViewState extends State<LoginView> {
       ),
       body: Center(
         child: _isLoading
-            ? const CircularProgressIndicator()
+            ? const CircularProgressIndicator(strokeWidth: 2)
             : Padding(
                 padding: const EdgeInsets.all(32.0),
                 child: Column(
