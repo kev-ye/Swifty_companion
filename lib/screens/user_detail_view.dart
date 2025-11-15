@@ -92,48 +92,68 @@ class UserDetailView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
             ],
+            // Filter and display only completed projects (including failed ones)
             if (projectsUsers.isNotEmpty) ...[
-              const Text(
-                'Projects',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: projectsUsers.map<Widget>((project) {
-                      final status = project['status']?.toString() ?? '';
-                      final validated = project['validated?'] as bool?;
-                      final finalMark = project['final_mark'] as int?;
+              Builder(
+                builder: (context) {
+                  print('project users: $projectsUsers');
+                  // Filter to show only finished projects (completed, including failed)
+                  final completedProjects = projectsUsers.where((project) {
+                    final status = project['status']?.toString() ?? '';
+                    return status == 'finished';
+                  }).toList();
 
-                      Color statusColor = Colors.grey;
-                      if (validated == true) {
-                        statusColor = Colors.green;
-                      } else if (status == 'finished' && validated == false) {
-                        statusColor = Colors.red;
-                      }
+                  if (completedProjects.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
 
-                      return ListTile(
-                        leading: Icon(
-                          validated == true ? Icons.check_circle : Icons.cancel,
-                          color: statusColor,
-                        ),
-                        title: Text(project['project']?['name']?.toString() ?? 'Unknown'),
-                        subtitle: Text('Status: $status'),
-                        trailing: finalMark != null
-                            ? Text(
-                                '$finalMark/100',
-                                style: TextStyle(
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Completed Projects',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            children: completedProjects.map<Widget>((project) {
+                              final validated = project['validated?'] as bool?;
+                              final finalMark = project['final_mark'] as int?;
+                              final projectName = project['project']?['name']?.toString() ?? 'Unknown';
+
+                              // Completed projects can only be Passed or Failed
+                              final isPassed = validated == true;
+                              final statusColor = isPassed ? Colors.green : Colors.red;
+                              final statusIcon = isPassed ? Icons.check_circle : Icons.cancel;
+                              final statusText = isPassed ? 'Passed' : 'Failed';
+
+                              return ListTile(
+                                leading: Icon(
+                                  statusIcon,
                                   color: statusColor,
-                                  fontWeight: FontWeight.bold,
                                 ),
-                              )
-                            : null,
-                      );
-                    }).toList(),
-                  ),
-                ),
+                                title: Text(projectName),
+                                subtitle: Text(statusText),
+                                trailing: finalMark != null
+                                    ? Text(
+                                        '$finalMark/100',
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null,
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ],
