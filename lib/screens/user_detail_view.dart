@@ -6,6 +6,14 @@ class UserDetailView extends StatelessWidget {
 
   const UserDetailView({super.key, required this.userData});
 
+  // Helper method to safely format level value
+  String _formatLevel(dynamic level) {
+    if (level == null) return 'N/A';
+    final levelDouble = (level is num) ? level.toDouble() : (level is String ? double.tryParse(level) : null);
+    if (levelDouble == null || levelDouble.isNaN || levelDouble.isInfinite) return 'N/A';
+    return levelDouble.toStringAsFixed(2);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cursusUsers = userData['cursus_users'] as List? ?? [];
@@ -39,7 +47,7 @@ class UserDetailView extends StatelessWidget {
               _buildInfoRow('Email', userData['email']?.toString()),
               _buildInfoRow('Mobile', userData['phone']?.toString()),
               _buildInfoRow('Wallet', '${userData['wallet'] ?? 0} ₳'),
-              _buildInfoRow('Level', mainCursus?['level']?.toStringAsFixed(2) ?? 'N/A'),
+              _buildInfoRow('Level', _formatLevel(mainCursus?['level'])),
               _buildInfoRow('Location', userData['location']?.toString() ?? 'Unavailable'),
               _buildInfoRow('Evaluation Points', '${userData['correction_point'] ?? 0}'),
             ]),
@@ -55,8 +63,31 @@ class UserDetailView extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     children: skills.map<Widget>((skill) {
-                      final level = (skill['level'] ?? 0.0) as double;
+                      // Safely convert level to double, handling null, NaN, and invalid types
+                      final levelValue = skill['level'];
+                      double level = 0.0;
+                      if (levelValue != null) {
+                        if (levelValue is num) {
+                          level = levelValue.toDouble();
+                        } else if (levelValue is String) {
+                          level = double.tryParse(levelValue) ?? 0.0;
+                        }
+                      }
+                      // Ensure level is a valid number (not NaN or Infinity)
+                      if (level.isNaN || level.isInfinite) {
+                        level = 0.0;
+                      }
+                      
+                      // Calculate percentage safely
                       final percentage = (level % 1) * 100;
+                      // Clamp percentage to valid range and ensure it's not NaN
+                      final safePercentage = percentage.isNaN || percentage.isInfinite 
+                          ? 0.0 
+                          : percentage.clamp(0.0, 100.0);
+                      
+                      // Clamp progress value to valid range for LinearProgressIndicator
+                      final progressValue = (safePercentage / 100).clamp(0.0, 1.0);
+                      
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Column(
@@ -73,14 +104,14 @@ class UserDetailView extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Lv ${level.toStringAsFixed(2)} (${percentage.toStringAsFixed(0)}%)',
+                                  'Lv ${level.toStringAsFixed(2)} (${safePercentage.toStringAsFixed(0)}%)',
                                   style: const TextStyle(fontWeight: FontWeight.w500),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 4),
                             LinearProgressIndicator(
-                              value: percentage / 100,
+                              value: progressValue,
                               backgroundColor: Colors.grey[300],
                             ),
                           ],
